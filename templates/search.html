@@ -41,6 +41,13 @@
           </button>
         </form>
       </div>
+      <h2 class="text-xl font-bold text-slate-700 mb-6 flex items-center justify-between">
+        <span></span>
+        <a href="/search/download?budget={{ budget }}&purpose={{ purpose }}"
+          class="text-sm font-semibold text-white border border-[#43637E] rounded-lg px-4 py-2 hover:bg-[#43637E] hover:text-white transition">
+          📥 CSV 다운로드
+        </a>
+      </h2>
     </div>
 
     <!-- 결과 영역 -->
@@ -48,13 +55,6 @@
       <h2 class="text-xl font-bold text-slate-700 mb-6">
         예산 {{ budget }}원 · {{ purpose }} 추천 견적
       </h2>
-
-      <!-- print(best.cpu.keyword)
-      print(best.gpu.model)
-      print(best.final_score)
-      print(best.value_score)
-      print(best.balance_score)
-      print(best.budget_usage) -->
 
       <div class="max-w-3xl mx-auto space-y-4">
 
@@ -76,7 +76,6 @@
             <div class="min-w-0">
               <p class="text-[10px] text-slate-400">CPU</p>
               <p class="text-sm font-semibold text-slate-700 truncate">{{ item.cpu.keyword }}</p>
-              
             </div>
               <p class="text-sm font text-slate-700 truncate">{{ item.cpu.price }}원</p>
           </a>
@@ -88,7 +87,6 @@
             <div class="min-w-0">
               <p class="text-[10px] text-slate-400">GPU</p>
               <p class="text-sm font-semibold text-slate-700 truncate">{{ item.gpu.model }}</p>
-              
             </div>
               <p class="text-sm font text-slate-700 truncate">{{ item.gpu.price }}원</p>
           </a>
@@ -124,47 +122,22 @@
         </div>
       </div>
 
+      <!-- 가격 추이 + 그래프 -->
       <div class="grid grid-cols-2 gap-4 mt-6">
         <div>
           <p class="text-xs font-semibold text-slate-500 mb-2">CPU 가격 추이</p>
           <canvas id="cpuPriceChart" class="w-full h-40"></canvas>
+          <!-- 예측 정보 카드 -->
+          <div id="cpuTimingInfo" class="bg-slate-50 rounded-xl p-3 mt-3 text-sm"></div>
         </div>
         <div>
           <p class="text-xs font-semibold text-slate-500 mb-2">GPU 가격 추이</p>
           <canvas id="gpuPriceChart" class="w-full h-40"></canvas>
+          <!-- 예측 정보 카드 -->
+          <div id="gpuTimingInfo" class="bg-slate-50 rounded-xl p-3 mt-3 text-sm"></div>
         </div>
       </div>
 
-        <div class="grid grid-cols-2 gap-4 mt-4">
-    {% for analysis in [item.cpu.price_analysis, item.gpu.price_analysis] %}
-      {% if analysis %}
-      <div class="bg-slate-50 rounded-xl p-4 text-sm">
-        <p class="font-semibold text-slate-700 mb-2 truncate">{{ analysis.product_name }}</p>
-        <div class="space-y-1 text-slate-500">
-          <div class="flex justify-between">
-            <span>현재가</span>
-            <span class="font-semibold text-slate-700">{{ "{:,}".format(analysis.current_price|int) }}원</span>
-          </div>
-          <div class="flex justify-between">
-            <span>최고가</span>
-            <span>{{ "{:,}".format(analysis.highest_price|int) }}원</span>
-          </div>
-          <div class="flex justify-between">
-            <span>최저가</span>
-            <span>{{ "{:,}".format(analysis.lowest_price|int) }}원</span>
-          </div>
-          <div class="flex justify-between">
-            <span>평균가 대비</span>
-            <span class="{% if analysis.percent < 0 %}text-emerald-600{% else %}text-rose-500{% endif %} font-semibold">
-              {{ analysis.percent }}%
-            </span>
-          </div>
-        </div>
-        <p class="mt-3 text-center font-bold text-[#43637E]">{{ analysis.recommendation }}</p>
-      </div>
-      {% endif %}
-    {% endfor %}
-  </div>
     {% else %}
 
       <!-- ============ 2위, 3위: 작은 리스트 ============ -->
@@ -203,46 +176,141 @@
   {% endfor %}
 
 </div>
+    </div>
+
     {% if results %}
-<script id="price-data" type="application/json">
-  {{ {
-    "cpu": results[0].cpu.price_history,
-    "gpu": results[0].gpu.price_history
-  } | tojson }}
-</script>
+    <script id="price-data" type="application/json">
+      {{ {
+        "cpu": {
+          "history": results[0].cpu.price_history,
+          "analysis": results[0].cpu.price_analysis
+        },
+        "gpu": {
+          "history": results[0].gpu.price_history,
+          "analysis": results[0].gpu.price_analysis
+        }
+      } | tojson }}
+    </script>
 
-<script>
-  const priceData = JSON.parse(document.getElementById("price-data").textContent);
-  const cpuPriceHistory = priceData.cpu;
-  const gpuPriceHistory = priceData.gpu;
+    <script>
+      const priceData = JSON.parse(document.getElementById("price-data").textContent);
 
-  function renderPriceChart(canvasId, data, color) {
-    new Chart(document.getElementById(canvasId), {
-      type: "line",
-      data: {
-        labels: data.map(d => d.date),
-        datasets: [{
-          data: data.map(d => d.price),
-          borderColor: color,
-          backgroundColor: color + "20",
-          fill: true,
-          tension: 0.3,
-          pointRadius: 2,
-        }],
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: { y: { ticks: { callback: v => (v / 10000) + "만원" } } },
-      },
-    });
-  }
+      // 실제 가격선 + (있으면) 7일 후 예측선을 그리는 함수
+      function renderPriceChart(canvasId, part, color) {
+        const history = part.history;
+        const analysis = part.analysis;
 
-  renderPriceChart("cpuPriceChart", cpuPriceHistory, "#43637E");
-  renderPriceChart("gpuPriceChart", gpuPriceHistory, "#38bdf8");
-</script>
-{% endif %}
+        // 예측 정보가 없으면 실제 가격선만 그림
+        if (!analysis) {
+          new Chart(document.getElementById(canvasId), {
+            type: "line",
+            data: {
+              labels: history.map(d => d.date),
+              datasets: [{
+                data: history.map(d => d.price),
+                borderColor: color,
+                backgroundColor: color + "20",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 2,
+              }],
+            },
+            options: { plugins: { legend: { display: false } } },
+          });
+          return null;
+        }
 
+        const labels = history.map(d => d.date);
+        const actualData = history.map(d => d.price);
+
+        // 마지막 실제 날짜 + 7일
+        const lastDate = new Date(labels[labels.length - 1]);
+        const futureDate = new Date(lastDate);
+        futureDate.setDate(futureDate.getDate() + 7);
+        const futureLabel = futureDate.toISOString().split("T")[0];
+
+        const allLabels = [...labels, futureLabel];
+        const actualLine = [...actualData, null];
+        const predictedLine = [
+          ...Array(labels.length - 1).fill(null),
+          actualData[actualData.length - 1], // 실제 마지막 값에서 이어짐
+          analysis.predicted_price,
+        ];
+
+        new Chart(document.getElementById(canvasId), {
+          type: "line",
+          data: {
+            labels: allLabels,
+            datasets: [
+              {
+                label: "실제 가격",
+                data: actualLine,
+                borderColor: color,
+                backgroundColor: color + "20",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 2,
+              },
+              {
+                label: "7일 후 예측",
+                data: predictedLine,
+                borderColor: color,
+                borderDash: [5, 5],
+                fill: false,
+                tension: 0.3,
+                pointRadius: (ctx) => (ctx.dataIndex === allLabels.length - 1 ? 5 : 0),
+              },
+            ],
+          },
+          options: {
+            plugins: { legend: { display: true, labels: { boxWidth: 12 } } },
+            scales: { y: { ticks: { callback: (v) => v / 10000 + "만원" } } },
+          },
+        });
+
+        return analysis;
+      }
+
+      // 캔버스 아래 예측 정보 카드 채우기
+      function renderTimingInfo(elId, analysis) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+
+        if (!analysis) {
+          el.innerHTML = `<p class="text-slate-400 text-center">예측 정보 없음</p>`;
+          return;
+        }
+
+        const isDown = analysis.expected_change < 0;
+        const changeColor = isDown ? "text-blue-600" : "text-rose-500";
+        const sign = analysis.expected_change > 0 ? "+" : "";
+
+        el.innerHTML = `
+          <div class="flex justify-between mb-1">
+            <span class="text-slate-500">현재가</span>
+            <span class="font-semibold text-slate-700">${analysis.current_price.toLocaleString()}원</span>
+          </div>
+          <div class="flex justify-between mb-1">
+            <span class="text-slate-500">7일 후 예상</span>
+            <span class="font-semibold text-slate-700">${analysis.predicted_price.toLocaleString()}원</span>
+          </div>
+          <div class="flex justify-between mb-2">
+            <span class="text-slate-500">예상 변동</span>
+            <span class="font-semibold ${changeColor}">${sign}${analysis.expected_change.toLocaleString()}원 (${sign}${analysis.percent}%)</span>
+          </div>
+          <div class="flex justify-between mb-2">
+            <span class="text-slate-500">타이밍 점수</span>
+            <span class="font-semibold text-[#43637E]">${analysis.price_score}점</span>
+          </div>
+          <p class="text-center font-bold text-[#43637E] mt-2">${analysis.recommendation}</p>
+        `;
+      }
+
+      const cpuAnalysis = renderPriceChart("cpuPriceChart", priceData.cpu, "#43637E");
+      const gpuAnalysis = renderPriceChart("gpuPriceChart", priceData.gpu, "#38bdf8");
+      renderTimingInfo("cpuTimingInfo", cpuAnalysis);
+      renderTimingInfo("gpuTimingInfo", gpuAnalysis);
+    </script>
+    {% endif %}
   </body>
-  
 </html>
-
