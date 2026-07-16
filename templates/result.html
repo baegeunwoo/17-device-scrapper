@@ -1,0 +1,22 @@
+<h2>{{ score }}</h2>
+<h3>{{ price_info.product_name }}</h3>
+
+<p>현재 가격 : {{ "{:,}".format(price_info.current_price) }}원</p>
+<p>30일 최고가 : {{ "{:,}".format(price_info.highest_price) }}원</p>
+<p>30일 최저가 : {{ "{:,}".format(price_info.lowest_price) }}원</p>
+<p>30일 평균가 : {{ "{:,}".format(price_info.average_price|int) }}원</p>
+<p>평균 대비 : {{ price_info.percent }}%</p>
+<p>구매 추천 : {{ price_info.recommendation }}</p>
+
+<img src="{{ graph_path }}" width="700" />
+
+<h3>{{ price_info2.product_name }}</h3>
+
+<p>현재 가격 : {{ "{:,}".format(price_info2.current_price) }}원</p>
+<p>30일 최고가 : {{ "{:,}".format(price_info2.highest_price) }}원</p>
+<p>30일 최저가 : {{ "{:,}".format(price_info2.lowest_price) }}원</p>
+<p>30일 평균가 : {{ "{:,}".format(price_info2.average_price|int) }}원</p>
+<p>평균 대비 : {{ price_info2.percent }}%</p>
+<p>구매 추천 : {{ price_info2.recommendation }}</p>
+
+<img src="{{ graph_path2 }}" width="700" />
